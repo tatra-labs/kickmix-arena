@@ -1,0 +1,5 @@
+name = "modinv251"
+files = ["circuit.py"]
+judge = "{python} -P judge.py"
+direction = "min"
+timeout = 600
