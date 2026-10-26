@@ -81,6 +81,11 @@ coherent superposition is fixed by its action on basis states, which a classical
 - **Exact pass/fail.** On every trajectory, every register must hold the required value, every ancilla
   must be freed back to 0, and the sign must be +1. If all *k* trajectories pass, the candidate's failure
   probability is at most about ln(1/δ)/*k* with confidence 1 − δ (the paper's bound).
+- **Edge cases, not just uniform inputs.** Uniform sampling almost never hits a carry that ripples through
+  all 32 bits, so every check adds fixed corners (each mix of 0, 1, top bit and all ones; every *x* for
+  `modinv251`), plus a quarter as many structured inputs stratified by carry-chain or common-prefix length.
+  Judges also keep the inputs that broke earlier candidates in `~/.kickmix/` (or `$KICKMIX_HOME`) and replay
+  them for every later one, so a bug found once stays found.
 - **Untrusted code is replayed, not trusted.** `kickmix eval` and the task judges build the candidate in
   a separate process that returns only its gate list; the scorer replays it in its own simulator. A
   candidate that edits the counters only fools itself (there is a test for exactly that).

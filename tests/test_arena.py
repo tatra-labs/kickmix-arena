@@ -84,3 +84,53 @@ def test_replayed_sign_gates_reference_real_measurements():
     (q,) = c.alloc(1)
     with pytest.raises(CircuitError):
         c.replay([("cz", [q, q + 1], [0])])
+
+
+def _gidney_with_a_bug_when(value):
+    """Gidney's adder, plus a gate that corrupts b[0] only when a == value (1 input in 2^32)."""
+    honest = load_build(ROOT / "references" / "add32_gidney.py")
+
+    def build(c, a, b):
+        honest(c, a, b)
+        flip = [q for i, q in enumerate(a) if not value >> i & 1]
+        for q in flip:
+            c.x(q)
+        chain = c.alloc(len(a) - 1)  # chain[-1] = AND of all bits of a
+        steps = [(a[0], a[1], chain[0])] + [(chain[i - 1], a[i + 1], chain[i]) for i in range(1, len(a) - 1)]
+        for step in steps:
+            c.ccx(*step)
+        c.cx(chain[-1], b[0])
+        for step in reversed(steps):
+            c.ccx(*step)
+        for q in flip:
+            c.x(q)
+        c.free(chain)
+
+    return build
+
+
+def test_edge_cases_catch_a_bug_uniform_sampling_misses():
+    r = evaluate(TASKS["add32"], _gidney_with_a_bug_when(2**32 - 1))
+    assert not r.valid and 0 < r.failures < 1040 and "4294967295" in r.message
+
+
+def test_inputs_that_broke_one_candidate_are_replayed_for_every_later_one(tmp_path):
+    corpus, buggy = tmp_path / "add32.jsonl", _gidney_with_a_bug_when(0xDEADBEEF)
+    assert evaluate(TASKS["add32"], buggy, corpus=corpus).valid  # too rare to sample
+    corpus.write_text('{"a": 3735928559, "b": 7}\n')  # once some candidate failed on it ...
+    r = evaluate(TASKS["add32"], buggy, corpus=corpus)
+    assert not r.valid and r.failures == 1  # ... every later candidate is checked on it too
+    honest = evaluate(TASKS["add32"], load_build(ROOT / "references" / "add32_gidney.py"), corpus=corpus)
+    assert honest.valid and "broke earlier circuits" in honest.message
+
+
+def test_failures_are_recorded_once(tmp_path):
+    corpus = tmp_path / "add32.jsonl"
+    for _ in range(2):
+        evaluate(TASKS["add32"], _gidney_with_a_bug_when(2**32 - 1), corpus=corpus)
+    rows = corpus.read_text().splitlines()
+    assert 0 < len(rows) == len(set(rows)) and all('"a": 4294967295' in row for row in rows)
+
+
+def test_modular_inverse_checks_every_x():
+    assert {inp["x"] for inp in TASKS["modinv251"].corners()} == set(range(1, 251))

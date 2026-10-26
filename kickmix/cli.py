@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 
 from .docs import task_markdown
-from .evaluate import evaluate_file
+from .evaluate import corpus_path, evaluate_file
 from .tasks import TASKS
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,9 +17,10 @@ JUDGE = '''"""Scores circuit.py for lethe (or any harness): one JSON line, lower
 import json
 import random
 
-from kickmix import TASKS, evaluate_file
+from kickmix import TASKS, corpus_path, evaluate_file
 
-result = evaluate_file(TASKS["{name}"], "circuit.py", seed=random.randrange(2**31))
+task = TASKS["{name}"]
+result = evaluate_file(task, "circuit.py", seed=random.randrange(2**31), corpus=corpus_path(task))
 print(json.dumps({{"score": result.tq if result.valid else None, "feedback": result.summary()}}))
 '''
 
@@ -40,6 +41,7 @@ def main(argv: list[str] | None = None) -> None:
     e.add_argument("file")
     e.add_argument("--trajectories", type=int, default=4096)
     e.add_argument("--seed", type=int, default=0)
+    e.add_argument("--no-corpus", action="store_true", help="do not replay or record inputs that broke earlier circuits")
     i = sub.add_parser("init", help="write a lethe-compatible task directory")
     i.add_argument("task", choices=TASKS)
     i.add_argument("dir")
@@ -51,7 +53,8 @@ def main(argv: list[str] | None = None) -> None:
             refs = "; ".join(f"{k}: TQ {t * q:,}" for k, (t, q) in task.references.items())
             print(f"{name:<10} start TQ {r.tq:>9,}  {task.summary}" + (f"  [{refs}]" if refs else ""))
     elif args.command == "eval":
-        r = evaluate_file(TASKS[args.task], args.file, args.trajectories, args.seed)
+        task = TASKS[args.task]
+        r = evaluate_file(task, args.file, args.trajectories, args.seed, corpus=None if args.no_corpus else corpus_path(task))
         print(("VALID   " if r.valid else "INVALID ") + r.summary())
     else:
         write_task(args.task, Path(args.dir))

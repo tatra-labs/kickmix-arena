@@ -3,7 +3,8 @@
 import json
 import random
 
-from kickmix import TASKS, evaluate_file
+from kickmix import TASKS, corpus_path, evaluate_file
 
-result = evaluate_file(TASKS["modinv251"], "circuit.py", seed=random.randrange(2**31))
+task = TASKS["modinv251"]
+result = evaluate_file(task, "circuit.py", seed=random.randrange(2**31), corpus=corpus_path(task))
 print(json.dumps({"score": result.tq if result.valid else None, "feedback": result.summary()}))

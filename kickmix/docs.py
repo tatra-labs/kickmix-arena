@@ -26,7 +26,8 @@ Sign gates take `when=r` to apply only when the measurement outcome r is 1 (outc
 that change bits. Measurement-based uncomputation (Gidney 2018) therefore clears a temporary AND
 `q = a AND b` with no Toffoli: `r = c.mx(q); c.cz(a, b, when=r)`.
 
-A trajectory is one random input with its own random measurement outcomes. On every trajectory,
+A trajectory is one input with its own random measurement outcomes: uniform random inputs, corner
+cases (zeros, all ones, long carry chains) and inputs that broke earlier candidates. On every trajectory,
 every register must end with the required value, every ancilla you allocated must be freed (back
 to 0), and the sign must be +1. Plain Python (loops, functions, classical precomputation) is free.
 
